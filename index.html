@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MineraOS - Devmonark</title>
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f1f5f9; /* Slate 100 */
+            color: #1e293b;
+            overflow-x: hidden;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+        }
+
+        /* Estilos de tabla limpios */
+        .cell {
+            min-width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            border-right: 1px solid #f1f5f9;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        /* Colores de estado profesionales */
+        .s-sub { background-color: #dbeafe; color: #1e40af; } /* Azul */
+        .s-ind { background-color: #fef3c7; color: #92400e; } /* Ámbar */
+        .s-prf { background-color: #d1fae5; color: #065f46; } /* Esmeralda */
+        .s-baj { background-color: #fee2e2; color: #991b1b; } /* Rojo */
+        .s-des { background-color: #f8fafc; color: #94a3b8; font-weight: 400; } /* Gris */
+
+        input[type="number"] {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.875rem;
+            width: 100%;
+            outline: none;
+            transition: all 0.2s;
+        }
+        input[type="number"]:focus {
+            border-color: #3b82f6;
+            ring: 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .custom-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+
+        const App = () => {
+            const [config, setConfig] = useState({
+                workDays: 14,
+                offDays: 7,
+                inductionDays: 5,
+                totalDrillDays: 60
+            });
+
+            const data = useMemo(() => {
+                const { workDays, offDays, inductionDays, totalDrillDays } = config;
+                const total = totalDrillDays + 20;
+                let s1 = Array(total).fill('-');
+                let s2 = Array(total).fill('-');
+                let s3 = Array(total).fill('-');
+                
+                // Algoritmo S1 (Master)
+                let d = 0;
+                while (d < total) {
+                    s1[d++] = 'S';
+                    for(let i=0; i<inductionDays && d<total; i++) s1[d++] = 'I';
+                    for(let i=0; i<(workDays-1-inductionDays) && d<total; i++) s1[d++] = 'P';
+                    if(d<total) s1[d++] = 'B';
+                    for(let i=0; i<(offDays-1) && d<total; i++) s1[d++] = 'D';
+                }
+
+                // S2 Inicial
+                let d2 = 0; s2[d2++] = 'S';
+                for(let i=0; i<inductionDays; i++) s2[d2++] = 'I';
+
+                for (let i = 0; i < total; i++) {
+                    const daysAhead = inductionDays + 1;
+                    if (i + daysAhead < total) {
+                        const s1Baja = s1[i+daysAhead] === 'B';
+                        const s2Baja = s2[i+daysAhead] === 'B';
+                        if ((s1Baja || s2Baja) && s3[i] === '-') {
+                            const recentS3 = s3.slice(Math.max(0, i-offDays), i).some(x => x !== '-' && x !== 'D');
+                            if (!recentS3) {
+                                s3[i] = 'S';
+                                for(let k=1; k<=inductionDays && (i+k)<total; k++) s3[i+k] = 'I';
+                            }
+                        }
+                    }
+                    let drillers = (s1[i]==='P'?1:0);
+                    if ((s2[i]==='-' || s2[i]==='P') && (['I','P','S'].includes(i>0?s2[i-1]:'-'))) {
+                        if (drillers < 2 || s2[i-1]==='P') s2[i] = 'P';
+                    }
+                    if (s2[i]==='P') drillers++;
+                    if ((s3[i]==='-' || s3[i]==='P') && (['I','P'].includes(i>0?s3[i-1]:'-'))) {
+                        if (drillers < 2 || s3[i-1]==='P') s3[i] = 'P';
+                    }
+                    if (s3[i]==='P') drillers++;
+
+                    if (drillers > 2) {
+                        if (s2[i]==='P') {
+                            s2[i]='B'; for(let k=1;k<offDays&&(i+k)<total;k++) s2[i+k]='D';
+                            if(i+offDays<total) s2[i+offDays]='S';
+                        } else if (s3[i]==='P') {
+                            s3[i]='B'; for(let k=1;k<offDays&&(i+k)<total;k++) s3[i+k]='D';
+                        }
+                    }
+                }
+
+                const errors = [];
+                const counts = [];
+                for(let i=0; i<totalDrillDays; i++){
+                    const c = (s1[i]==='P'?1:0) + (s2[i]==='P'?1:0) + (s3[i]==='P'?1:0);
+                    counts.push(c);
+                    if (i > inductionDays + 2 && c < 2) {
+                        errors.push({ d: i, m: `Déficit crítico de cobertura: Solo ${c} supervisor activo.` });
+                    }
+                }
+                return { s1, s2, s3, counts, errors };
+            }, [config]);
+
+            const update = (key, val) => setConfig(prev => ({ ...prev, [key]: parseInt(val) || 0 }));
+
+            return (
+                <div className="min-h-screen p-6 flex flex-col gap-6">
+                    {/* HEADER */}
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h1 className="text-2xl font-bold tracking-tight text-slate-900">MineraOS Stratum</h1>
+                            <p className="text-sm text-slate-500 font-medium">Panel de Planificación y Control de Relevos</p>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="text-right">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Estado Normativo</p>
+                                <p className={`text-sm font-bold ${data.errors.length > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                    {data.errors.length > 0 ? `${data.errors.length} Incidencias Detectadas` : 'Cumplimiento 100%'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col lg:flex-row gap-6">
+                        {/* CONFIGURACIÓN LATERAL */}
+                        <div className="w-full lg:w-64 shrink-0 flex flex-col gap-4">
+                            <div className="card p-5 space-y-4">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Configuración</h3>
+                                <div>
+                                    <label className="text-xs font-medium text-slate-600 mb-1 block">Ciclo Trabajo</label>
+                                    <input type="number" value={config.workDays} onChange={e => update('workDays', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-slate-600 mb-1 block">Ciclo Descanso</label>
+                                    <input type="number" value={config.offDays} onChange={e => update('offDays', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-slate-600 mb-1 block">Inducción (días)</label>
+                                    <input type="number" value={config.inductionDays} onChange={e => update('inductionDays', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-slate-600 mb-1 block">Proyección Total</label>
+                                    <input type="number" value={config.totalDrillDays} onChange={e => update('totalDrillDays', e.target.value)} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* TABLA PRINCIPAL */}
+                        <div className="flex-1 card overflow-hidden flex flex-col">
+                            <div className="overflow-x-auto custom-scroll flex-1">
+                                <div className="inline-block min-w-full align-middle">
+                                    <div className="flex border-b border-slate-100 bg-slate-50/50">
+                                        <div className="w-32 h-10 flex items-center px-4 text-[10px] font-bold text-slate-400 uppercase sticky left-0 bg-slate-50 z-10">Supervisor</div>
+                                        {data.counts.map((_, i) => (
+                                            <div key={i} className="cell text-[9px] text-slate-400">D{i}</div>
+                                        ))}
+                                    </div>
+
+                                    {[
+                                        {id: 'S1', label: 'Supervisor 1', data: data.s1},
+                                        {id: 'S2', label: 'Supervisor 2', data: data.s2},
+                                        {id: 'S3', label: 'Supervisor 3', data: data.s3}
+                                    ].map(row => (
+                                        <div key={row.id} className="flex border-b border-slate-50">
+                                            <div className="w-32 h-10 flex items-center px-4 text-xs font-bold text-slate-700 sticky left-0 bg-white z-10 border-r border-slate-100">{row.label}</div>
+                                            {row.data.slice(0, config.totalDrillDays).map((v, i) => {
+                                                let c = 's-des';
+                                                if(v==='S') c='s-sub'; if(v==='I') c='s-ind'; if(v==='P') c='s-prf'; if(v==='B') c='s-baj';
+                                                return <div key={i} className={`cell ${c}`}>{v==='D'?'':v}</div>
+                                            })}
+                                        </div>
+                                    ))}
+
+                                    <div className="flex bg-slate-50/80 font-bold">
+                                        <div className="w-32 h-10 flex items-center px-4 text-[10px] text-slate-600 uppercase sticky left-0 bg-slate-100 z-10 border-r border-slate-100">Cobertura</div>
+                                        {data.counts.map((c, i) => {
+                                            const isError = i > config.inductionDays && c < 2;
+                                            return <div key={i} className={`cell ${isError ? 'bg-red-500 text-white' : 'text-slate-600'}`}>{c}</div>
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* DASHBOARD INFERIOR: APROVECHAMIENTO DE ESPACIO */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* COL 1: REPORTES DE SALUD */}
+                        <div className="card p-5">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-red-500"></span> Auditoría de Cumplimiento
+                            </h3>
+                            <div className="space-y-3 max-h-48 overflow-y-auto custom-scroll pr-2">
+                                {data.errors.length === 0 ? (
+                                    <div className="bg-emerald-50 text-emerald-700 p-3 rounded-lg text-xs font-medium">
+                                        Operación segura. Todos los días cumplen con el mínimo de 2 supervisores.
+                                    </div>
+                                ) : (
+                                    data.errors.map((err, i) => (
+                                        <div key={i} className="flex justify-between items-center bg-red-50 p-2.5 rounded-lg border border-red-100">
+                                            <span className="text-[10px] font-bold text-red-700">DÍA {err.d}</span>
+                                            <span className="text-[10px] font-medium text-red-600">{err.m}</span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* COL 2: INSTRUCCIONES DE USO */}
+                        <div className="card p-5">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Instrucciones de Uso</h3>
+                            <ul className="text-[11px] text-slate-600 space-y-2.5">
+                                <li className="flex gap-2">
+                                    <span className="font-bold text-blue-500">1.</span>
+                                    <span>Los cambios en la configuración lateral se reflejan de forma inmediata en la tabla.</span>
+                                </li>
+                                <li className="flex gap-2">
+                                    <span className="font-bold text-blue-500">2.</span>
+                                    <span>La fila de <strong>Cobertura</strong> debe mantenerse con valor 2 (verde) para una operación óptima.</span>
+                                </li>
+                                <li className="flex gap-2">
+                                    <span className="font-bold text-blue-500">3.</span>
+                                    <span>Si aparece una celda roja, indica que ese día la operación está en riesgo por falta de personal.</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* COL 3: LEYENDA TÉCNICA */}
+                        <div className="card p-5">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Leyenda de Estados</h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="flex items-center gap-2 text-[10px] font-semibold">
+                                    <span className="w-4 h-4 rounded s-sub flex items-center justify-center text-[8px]">S</span> Subida
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] font-semibold">
+                                    <span className="w-4 h-4 rounded s-ind flex items-center justify-center text-[8px]">I</span> Inducción
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] font-semibold">
+                                    <span className="w-4 h-4 rounded s-prf flex items-center justify-center text-[8px]">P</span> Perforación
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] font-semibold">
+                                    <span className="w-4 h-4 rounded s-baj flex items-center justify-center text-[8px]">B</span> Bajada
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] font-semibold">
+                                    <span className="w-4 h-4 rounded s-des flex items-center justify-center border border-slate-200"></span> Descanso
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
