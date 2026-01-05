@@ -1,0 +1,61 @@
+================================================================================
+                    MINERAOS - DEVMONARK | ESPECIFICACIONES TÉCNICAS
+================================================================================
+Propiedad de: Devmonark
+Categoría: Software de Gestión y Optimización de Relevos Mineros
+--------------------------------------------------------------------------------
+
+1. DESCRIPCIÓN DEL SISTEMA
+--------------------------
+MineraOS - Devmonark es una plataforma de ingeniería de software diseñada para 
+resolver la logística compleja de supervisión en proyectos mineros. El sistema 
+automatiza el cálculo de ciclos de trabajo, asegurando que el frente de 
+perforación nunca quede desatendido ni sobrepoblado.
+
+2. ARQUITECTURA TÉCNICA (STACK)
+-------------------------------
+- Framework Core: React 18 (Arquitectura basada en componentes).
+- UI Framework: Tailwind CSS (Diseño responsivo de alta gama).
+- Font Engine: Montserrat (Optimización de legibilidad industrial).
+- Lógica: Hooks de React (useState/useMemo) para procesamiento en tiempo real.
+
+3. LÓGICA DE NEGOCIO (ALGORITMO DE RELEVOS)
+-------------------------------------------
+El algoritmo propietario de Devmonark opera bajo tres reglas de validación:
+
+A. PREDICCIÓN DE RELEVO: El motor escanea el cronograma de los supervisores 
+   activos y activa al Supervisor 3 de forma preventiva antes de que ocurra 
+   una bajada (B).
+   
+B. SOLAPAMIENTO DE INDUCCIÓN: El sistema sincroniza la subida (S) de nuevos 
+   relevos para que su periodo de inducción (I) se realice mientras la mina 
+   aún tiene cobertura total, evitando baches operativos.
+
+C. RESTRICCIÓN DE CAPACIDAD: El software garantiza que nunca existan 3 personas 
+   en fase de perforación (P), optimizando costos logísticos y de transporte.
+
+4. DICCIONARIO DE ESTADOS OPERATIVOS
+------------------------------------
+[S] - Subida: Traslado programado hacia la unidad minera.
+[I] - Inducción: Fase obligatoria de capacitación y seguridad.
+[P] - Perforación: Operación activa y productiva en el frente.
+[B] - Bajada: Cierre de turno y logística de salida.
+[D] - Descanso: Periodo de recuperación reglamentaria (Off-site).
+
+5. MÓDULO DE AUDITORÍA Y CUMPLIMIENTO
+-------------------------------------
+El sistema integra una fila de "Cobertura" que audita el cumplimiento normativo:
+- Cumplimiento 100%: Indica que existen exactamente 2 supervisores en perforación.
+- Alerta Crítica: Se activa visualmente si la cobertura es menor a 2.
+- Alerta de Exceso: Se activa si la cobertura supera los 2 activos.
+
+6. NOTAS DE IMPLEMENTACIÓN
+--------------------------
+- Ejecución: El software es una Single Page Application (SPA).
+- Compatibilidad: Optimizado para navegadores modernos con motor Chromium.
+- Reactividad: Los inputs de configuración recalculan toda la matriz de datos 
+  sin latencia perceptible.
+
+--------------------------------------------------------------------------------
+© 2026 Devmonark
+--------------------------------------------------------------------------------
