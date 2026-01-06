@@ -52,38 +52,46 @@
             });
 
             const grid = useMemo(() => {
-                const totalCells = config.proj + 20; // Buffer para cálculos
+                const totalCells = config.proj + 20;
                 let s1 = Array(totalCells).fill(null);
                 let s2 = Array(totalCells).fill(null);
                 let s3 = Array(totalCells).fill(null);
 
-                // --- LÓGICA DE CICLO CORREGIDA ---
+                // --- LÓGICA COMPLETAMENTE CORREGIDA ---
                 const llenarSupervisor = (arr, inicio) => {
-                    let d = inicio;
-                    while (d < totalCells) {
-                        // 1. Días de Trabajo (config.work días)
-                        // Ejemplo: work=14 → D0 a D13 = 14 días
+                    let diaActual = inicio;
+                    
+                    while (diaActual < totalCells) {
+                        // FASE 1: DÍAS DE TRABAJO (work días)
+                        // Si work = 14: D0 a D13 = 14 días
                         for (let i = 0; i < config.work; i++) {
-                            if (d >= totalCells) break;
-                            if (i === 0) arr[d] = 'S';          // Primer día: Subida
-                            else if (i <= config.ind) arr[d] = 'I'; // Inducción
-                            else arr[d] = 'P';                  // Producción
-                            d++;
+                            if (diaActual >= totalCells) break;
+                            
+                            if (i === 0) {
+                                arr[diaActual] = 'S'; // Día 0: Subida
+                            } else if (i <= config.ind) {
+                                arr[diaActual] = 'I'; // Días de inducción
+                            } else {
+                                arr[diaActual] = 'P'; // Días de producción
+                            }
+                            
+                            diaActual++;
                         }
                         
-                        // 2. Día de Bajada (CORREGIDO)
-                        // Ocurre el día DESPUÉS del último día de trabajo
-                        if (d < totalCells) {
-                            arr[d] = 'B'; 
-                            d++;
+                        // FASE 2: DÍA DE BAJADA (CORREGIDO)
+                        // Ocurre INMEDIATAMENTE después del último día de trabajo
+                        // Si el último día de trabajo fue D13, entonces Bajada es D14
+                        if (diaActual < totalCells) {
+                            arr[diaActual] = 'B';
+                            diaActual++;
                         }
-
-                        // 3. Días de Descanso
-                        // Se resta 1 porque la 'B' ya ocupó un día del descanso
+                        
+                        // FASE 3: DÍAS DE DESCANSO (rest - 1 días)
+                        // Porque la Bajada ya ocupa 1 día del período de descanso
                         for (let i = 0; i < config.rest - 1; i++) {
-                            if (d >= totalCells) break;
-                            arr[d] = null;
-                            d++;
+                            if (diaActual >= totalCells) break;
+                            arr[diaActual] = null;
+                            diaActual++;
                         }
                     }
                 };
@@ -92,18 +100,21 @@
                 llenarSupervisor(s1, 0);
                 llenarSupervisor(s2, 0);
 
-                // Supervisor 3 (Relevo)
-                // Busca el primer día donde S1 o S2 estén en 'B' para iniciar
+                // Supervisor 3 - Relevo estratégico
+                // Busca puntos donde S1 o S2 bajen para iniciar su ciclo
+                let s3Iniciado = false;
+                
                 for (let i = 0; i < totalCells; i++) {
-                    if ((s1[i] === 'B' || s2[i] === 'B') && s3[i] === null) {
-                        // Para reemplazar, S3 debe estar en 'P' el día que S1/S2 bajan
-                        // Necesita: 1 día de Subida + config.ind días de Inducción
-                        let inicioS3 = i - (1 + config.ind);
+                    // Buscar el primer punto donde S1 o S2 bajen
+                    if ((s1[i] === 'B' || s2[i] === 'B') && !s3Iniciado) {
+                        // S3 debe estar en Producción (P) el día que S1/S2 bajan
+                        // Necesita: 1 día Subida + ind días Inducción antes
+                        const diaInicioS3 = i - config.ind - 1;
                         
-                        if (inicioS3 >= 0) {
-                            // Verificar que el período anterior esté libre
+                        if (diaInicioS3 >= 0) {
+                            // Verificar que los días anteriores estén libres
                             let puedeIniciar = true;
-                            for (let j = inicioS3; j < i; j++) {
+                            for (let j = diaInicioS3; j <= i; j++) {
                                 if (s3[j] !== null) {
                                     puedeIniciar = false;
                                     break;
@@ -111,7 +122,8 @@
                             }
                             
                             if (puedeIniciar) {
-                                llenarSupervisor(s3, inicioS3);
+                                llenarSupervisor(s3, diaInicioS3);
+                                s3Iniciado = true;
                             }
                         }
                     }
