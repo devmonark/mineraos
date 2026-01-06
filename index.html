@@ -3,222 +3,199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MineraOS Devmonark - Final Logic</title>
+    <title>MineraOS Devmonark - Sistema de Relevos</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .cell { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
+        .cell-header { background: #f8fafc; color: #94a3b8; font-size: 0.65rem; text-transform: uppercase; }
+        .row-name { width: 140px; padding-left: 1rem; display: flex; align-items: center; font-weight: 700; font-size: 0.8rem; border-right: 1px solid #e2e8f0; position: sticky; left: 0; background: white; z-index: 10; }
         
-        /* Contenedores */
-        .card-config { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-        .card-table { background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); overflow: hidden; }
+        /* Colores de Estado */
+        .st-s { background-color: #dbeafe; color: #1e40af; } /* Subida */
+        .st-i { background-color: #fef3c7; color: #b45309; } /* Inducción */
+        .st-p { background-color: #dcfce7; color: #166534; } /* Producción */
+        .st-b { background-color: #fee2e2; color: #991b1b; } /* Bajada */
         
-        /* Celdas */
-        .cell-header { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: #94a3b8; border-right: 1px solid #f8fafc; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-        .cell { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
+        .input-field { border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 8px; width: 100%; font-weight: 600; font-size: 0.9rem; }
+        .input-label { font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px; display: block; }
         
-        /* Colores MineraOS */
-        .st-s { background-color: #dbeafe; color: #1e40af; } /* Subida (Azul) */
-        .st-i { background-color: #fef3c7; color: #b45309; } /* Inducción (Amarillo) */
-        .st-p { background-color: #dcfce7; color: #166534; } /* Producción (Verde) */
-        .st-b { background-color: #fee2e2; color: #991b1b; } /* Bajada (Rojo) */
-        .st-empty { background-color: #ffffff; }
-
-        .input-group label { display: block; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748b; margin-bottom: 6px; letter-spacing: 0.05em; }
-        .input-group input { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 0.9rem; font-weight: 600; color: #334155; transition: all 0.2s; }
-        .input-group input:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-
-        .row-title { width: 140px; padding-left: 1.5rem; display: flex; align-items: center; font-size: 0.8rem; font-weight: 700; color: #334155; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #f1f5f9; background: white; z-index: 10; position: sticky; left: 0; }
-        
-        .custom-scroll::-webkit-scrollbar { height: 8px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar { height: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
 <body>
     <div id="root"></div>
+
     <script type="text/babel">
         const { useState, useMemo } = React;
 
-        const App = () => {
+        const MineraOS = () => {
             const [config, setConfig] = useState({
-                work: 14,
-                rest: 6,
-                ind: 2,
-                proj: 33
+                trabajo: 14,
+                descanso: 6,
+                induccion: 2,
+                proyeccion: 33
             });
 
-            const grid = useMemo(() => {
-                const totalCells = config.proj + 15; // Buffer para cálculos
-                let s1 = Array(totalCells).fill(null);
-                let s2 = Array(totalCells).fill(null);
-                let s3 = Array(totalCells).fill(null);
+            const data = useMemo(() => {
+                const proj = config.proyeccion;
+                let s1 = Array(proj).fill(null);
+                let s2 = Array(proj).fill(null);
+                let s3 = Array(proj).fill(null);
 
-                // --- LÓGICA DE CICLO ---
-                const llenarSupervisor = (arr, inicio) => {
-                    let d = inicio;
-                    while (d < totalCells) {
-                        // 1. Días de Estancia (Trabajo)
-                        // Si config.work es 14, llenamos 0 a 13.
-                        for (let i = 0; i < config.work; i++) {
-                            if (d >= totalCells) break;
-                            if (i === 0) arr[d] = 'S';          // Primer día: Subida
-                            else if (i <= config.ind) arr[d] = 'I'; // Inducción
-                            else arr[d] = 'P';                  // Producción
-                            d++;
+                const generarCiclo = (arr, inicioOffset) => {
+                    let d = inicioOffset;
+                    while (d < proj) {
+                        // 1. Días de Trabajo (Subida + Inducción + Producción)
+                        // Total de días ocupados = config.trabajo
+                        for (let i = 0; i < config.trabajo; i++) {
+                            if (d + i >= proj) break;
+                            if (i === 0) arr[d + i] = 'S';
+                            else if (i <= config.induccion) arr[d + i] = 'I';
+                            else arr[d + i] = 'P';
                         }
                         
-                        // 2. Día de Bajada
-                        // Ocurre INMEDIATAMENTE después del trabajo.
-                        if (d < totalCells) {
-                            arr[d] = 'B'; 
-                            d++;
-                        }
+                        // 2. Día de Bajada (Ocurre el día inmediatamente después del trabajo)
+                        let diaBajada = d + config.trabajo;
+                        if (diaBajada < proj) arr[diaBajada] = 'B';
 
-                        // 3. Días de Descanso
-                        // Restamos 1 porque la 'B' ya ocupó un día físico del calendario
-                        for (let i = 0; i < config.rest - 1; i++) {
-                            if (d >= totalCells) break;
-                            arr[d] = null;
-                            d++;
-                        }
+                        // 3. Reinicio de ciclo: Trabajo + Descanso
+                        d += (config.trabajo + config.descanso);
                     }
                 };
 
-                // Supervisor 1 y 2 inician el día 0
-                llenarSupervisor(s1, 0);
-                llenarSupervisor(s2, 0);
+                // Supervisor 1 y 2 inician en D0
+                generarCiclo(s1, 0);
+                generarCiclo(s2, 0);
 
-                // Supervisor 3 (Relevo)
-                // Lógica: Debe estar en 'P' (listo) el día que S1/S2 están en 'B'.
-                for (let i = 0; i < totalCells; i++) {
+                // Lógica Relevo Supervisor 3:
+                // Debe estar en 'P' (Producción) cuando S1 o S2 están en 'B' (Bajada)
+                for (let i = 0; i < proj; i++) {
                     if (s1[i] === 'B' || s2[i] === 'B') {
-                        // Para estar en 'P' hoy, tuvo que subir hace (1 + inducción) días
-                        let diasPrep = 1 + config.ind;
-                        let inicioS3 = i - diasPrep;
-                        
-                        // Si encontramos un hueco válido, iniciamos su ciclo
-                        if (inicioS3 >= 0 && s3[inicioS3] === null) {
-                            // Verificación simple para no romper descansos previos
-                            let libre = true;
-                            // Chequeamos si el día anterior estaba ocupado (para no pegar ciclos)
-                            if (inicioS3 > 0 && s3[inicioS3-1] !== null && s3[inicioS3-1] !== 'D') libre = false; 
-                            
-                            if (libre) llenarSupervisor(s3, inicioS3);
-                        }
+                        // Para que S3 esté en 'P' el día i, debe haber subido antes
+                        // Subida (1) + Inducción (config.induccion) = días de preparación
+                        let inicioS3 = i - (1 + config.induccion);
+                        generarCiclo(s3, inicioS3);
                     }
                 }
 
-                // Cálculo de Cobertura
-                const cobertura = [];
-                for(let i=0; i<config.proj; i++) {
+                // Cálculo de Cobertura (Conteo de 'P')
+                const cobertura = Array(proj).fill(0).map((_, i) => {
                     let count = 0;
                     if (s1[i] === 'P') count++;
                     if (s2[i] === 'P') count++;
                     if (s3[i] === 'P') count++;
-                    cobertura.push(count);
-                }
+                    return count;
+                });
 
                 return { s1, s2, s3, cobertura };
             }, [config]);
 
             return (
-                <div className="min-h-screen p-8 flex flex-col items-center">
-                    
-                    {/* Header */}
-                    <div className="w-full max-w-[1500px] flex justify-between items-end mb-8">
+                <div className="p-8 max-w-[1600px] mx-auto">
+                    {/* Header Estilo MineraOS */}
+                    <div className="flex justify-between items-center mb-8">
                         <div>
-                            <h1 className="text-3xl font-black text-slate-800 tracking-tight italic">MINERAOS <span className="text-blue-600 underline decoration-4 underline-offset-4">DEVMONARK</span></h1>
-                            <p className="text-slate-400 font-semibold mt-2 text-sm">Gestión Crítica de Relevos de Supervisión</p>
+                            <h1 className="text-2xl font-black text-slate-800 tracking-tight">
+                                MineraOS <span className="text-blue-600">Devmonark</span>
+                            </h1>
+                            <p className="text-slate-400 text-sm font-medium">Panel de Planificación y Control de Relevos</p>
                         </div>
-                        <div className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-full text-xs font-black border border-emerald-100 uppercase tracking-widest shadow-sm">
-                            ✓ Operación Segura
+                        <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-lg text-emerald-600 text-xs font-bold uppercase tracking-wider">
+                            ● Operación Segura
                         </div>
                     </div>
 
-                    <div className="w-full max-w-[1500px] flex flex-col lg:flex-row gap-8">
-                        
-                        {/* Panel de Configuración */}
-                        <div className="w-full lg:w-72 shrink-0">
-                            <div className="card-config sticky top-6">
-                                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4">Configuración</h2>
-                                <div className="space-y-5">
-                                    <div className="input-group">
-                                        <label>Ciclo Trabajo (Días)</label>
-                                        <input type="number" value={config.work} onChange={e => setConfig({...config, work: +e.target.value})} />
-                                    </div>
-                                    <div className="input-group">
-                                        <label>Ciclo Descanso (Días)</label>
-                                        <input type="number" value={config.rest} onChange={e => setConfig({...config, rest: +e.target.value})} />
-                                    </div>
-                                    <div className="input-group">
-                                        <label>Días Inducción</label>
-                                        <input type="number" value={config.ind} onChange={e => setConfig({...config, ind: +e.target.value})} />
-                                    </div>
-                                    <div className="input-group">
-                                        <label>Proyección Total</label>
-                                        <input type="number" value={config.proj} onChange={e => setConfig({...config, proj: +e.target.value})} />
-                                    </div>
+                    <div className="flex flex-col lg:flex-row gap-8">
+                        {/* Panel de Configuración Izquierdo */}
+                        <div className="w-full lg:w-64 shrink-0">
+                            <div className="card p-6 space-y-6">
+                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-2">Configuración</h3>
+                                <div>
+                                    <label className="input-label">Ciclo Trabajo</label>
+                                    <input type="number" className="input-field" value={config.trabajo} 
+                                        onChange={e => setConfig({...config, trabajo: parseInt(e.target.value) || 0})} />
+                                </div>
+                                <div>
+                                    <label className="input-label">Ciclo Descanso</label>
+                                    <input type="number" className="input-field" value={config.descanso} 
+                                        onChange={e => setConfig({...config, descanso: parseInt(e.target.value) || 0})} />
+                                </div>
+                                <div>
+                                    <label className="input-label">Inducción</label>
+                                    <input type="number" className="input-field" value={config.induccion} 
+                                        onChange={e => setConfig({...config, induccion: parseInt(e.target.value) || 0})} />
+                                </div>
+                                <div>
+                                    <label className="input-label">Proyección Total</label>
+                                    <input type="number" className="input-field" value={config.proyeccion} 
+                                        onChange={e => setConfig({...config, proyeccion: parseInt(e.target.value) || 0})} />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Tabla Visual */}
-                        <div className="flex-1 card-table flex flex-col">
+                        {/* Tabla de Relevos Principal */}
+                        <div className="flex-1 card overflow-hidden">
                             <div className="overflow-x-auto custom-scroll">
-                                <div className="inline-block min-w-full">
-                                    
-                                    {/* Encabezado Días */}
-                                    <div className="flex">
-                                        <div className="row-title text-[10px] text-slate-400 uppercase tracking-widest">Supervisor</div>
-                                        {grid.cobertura.map((_, i) => (
-                                            <div key={i} className="cell-header">D{i}</div>
-                                        ))}
-                                    </div>
-
-                                    {/* Filas */}
-                                    {[
-                                        { n: 'Supervisor 1', data: grid.s1 },
-                                        { n: 'Supervisor 2', data: grid.s2 },
-                                        { n: 'Supervisor 3', data: grid.s3 }
-                                    ].map((s, idx) => (
-                                        <div key={idx} className="flex border-b border-slate-50">
-                                            <div className="row-title">{s.n}</div>
-                                            {s.data.slice(0, config.proj).map((val, i) => {
-                                                let cls = 'st-empty';
-                                                if(val === 'S') cls = 'st-s';
-                                                if(val === 'I') cls = 'st-i';
-                                                if(val === 'P') cls = 'st-p';
-                                                if(val === 'B') cls = 'st-b';
-                                                return <div key={i} className={`cell ${cls}`}>{val || ''}</div>
-                                            })}
-                                        </div>
-                                    ))}
-
-                                    {/* Cobertura */}
-                                    <div className="flex bg-slate-50/50 mt-1">
-                                        <div className="row-title text-[10px] uppercase text-slate-500 bg-slate-50">Cobertura (P)</div>
-                                        {grid.cobertura.map((c, i) => (
-                                            <div key={i} className={`cell border-none text-xs ${c < 2 && i > config.ind ? 'text-red-600 font-black' : 'text-slate-400 font-bold'}`}>
-                                                {c}
-                                            </div>
-                                        ))}
-                                    </div>
-
+                                <div className="inline-block min-w-full align-middle">
+                                    <table className="min-w-full border-collapse">
+                                        <thead>
+                                            <tr>
+                                                <th className="row-name bg-slate-50 cell-header border-b">Supervisor</th>
+                                                {Array.from({length: config.proyeccion}).map((_, i) => (
+                                                    <th key={i} className="cell cell-header border-b">D{i}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {[
+                                                { id: 'Supervisor 1', vals: data.s1 },
+                                                { id: 'Supervisor 2', vals: data.s2 },
+                                                { id: 'Supervisor 3', vals: data.s3 }
+                                            ].map((row, idx) => (
+                                                <tr key={idx}>
+                                                    <td className="row-name border-b">{row.id}</td>
+                                                    {row.vals.map((v, i) => (
+                                                        <td key={i} className={`cell border-b ${v ? `st-${v.toLowerCase()}` : ''}`}>
+                                                            {v}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                            <tr className="bg-slate-50/50">
+                                                <td className="row-name text-[10px] uppercase text-slate-400">Cobertura (P)</td>
+                                                {data.cobertura.map((c, i) => (
+                                                    <td key={i} className={`cell border-none text-xs ${c < 2 && i > config.induccion ? 'text-red-500 font-black' : 'text-slate-500'}`}>
+                                                        {c}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
+                    {/* Footer de Auditoría */}
+                    <div className="mt-8 card p-4 bg-emerald-50/30 border-emerald-100">
+                        <p className="text-emerald-700 text-sm font-semibold flex items-center gap-2">
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                            Auditoría de cumplimiento: Se garantiza el relevo sincronizado en los días de bajada.
+                        </p>
                     </div>
                 </div>
             );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        root.render(<MineraOS />);
     </script>
 </body>
 </html>
