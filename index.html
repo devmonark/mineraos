@@ -8,18 +8,17 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
-        .card { background: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .cell { min-width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; transition: all 0.2s; }
-        .s-sub { background-color: #3b82f6; color: white; } /* Subida Blue */
-        .s-ind { background-color: #fbbf24; color: #92400e; } /* Inducción Yellow */
-        .s-prf { background-color: #22c55e; color: white; } /* Perforación Green */
-        .s-baj { background-color: #ef4444; color: white; } /* Bajada Red */
-        .s-des { background-color: #f8fafc; color: #cbd5e1; font-weight: 400; }
-        .custom-scroll::-webkit-scrollbar { height: 10px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px; }
+        .cell { min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
+        .s-sub { background-color: #3b82f6; color: white; }
+        .s-ind { background-color: #fbbf24; color: #92400e; }
+        .s-prf { background-color: #22c55e; color: white; }
+        .s-baj { background-color: #ef4444; color: white; }
+        .s-des { background-color: #f8fafc; color: #cbd5e1; }
+        .custom-scroll::-webkit-scrollbar { height: 8px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -37,60 +36,66 @@
 
             const data = useMemo(() => {
                 const { workDays, offDays, inductionDays, totalDrillDays } = config;
-                const total = totalDrillDays + 20;
+                const total = totalDrillDays + 30;
                 let s1 = Array(total).fill('-');
                 let s2 = Array(total).fill('-');
                 let s3 = Array(total).fill('-');
 
-                // FUNCIÓN MAESTRA DE CICLO
-                const fillCycle = (arr, startDay) => {
-                    let d = startDay;
+                const fillPerson = (arr, start) => {
+                    let d = start;
                     while (d < total) {
-                        if (d < total) arr[d++] = 'S'; // Subida
+                        // Subida
+                        if (d < total) arr[d++] = 'S';
+                        // Inducción
                         for (let i = 0; i < inductionDays && d < total; i++) arr[d++] = 'I';
-                        // El tiempo de P es (Trabajo - Inducción - 1 día de bajada)
-                        let pDays = workDays - inductionDays - 1;
-                        for (let i = 0; i < pDays && d < total; i++) arr[d++] = 'P';
-                        if (d < total) arr[d++] = 'B'; // Bajada EXACTA en el día workDays
+                        // Trabajo (P) - Calculado para que la suma total de S+I+P sea exactamente workDays
+                        let pLimit = workDays - inductionDays - 1;
+                        for (let i = 0; i < pLimit && d < total; i++) arr[d++] = 'P';
+                        // Bajada (B) - Ocurre exactamente en el día del ciclo (ej: día 14)
+                        if (d < total) arr[d++] = 'B';
+                        // Descanso
                         for (let i = 0; i < (offDays - 1) && d < total; i++) arr[d++] = 'D';
                     }
                 };
 
-                // Asignación inicial
-                fillCycle(s1, 0);
-                
-                // Lógica de Relevo para S2 y S3
-                // S2 entra para apoyar a S1
-                let d2 = 0;
-                s2[d2++] = 'S';
-                for(let i=0; i<inductionDays && d2<total; i++) s2[d2++] = 'I';
-                
-                for(let i=d2; i<total; i++) {
-                    // Si S1 baja en el futuro cercano, S2 o S3 deben estar listos
-                    let drillers = (s1[i]==='P'?1:0) + (s2[i]==='P'?1:0) + (s3[i]==='P'?1:0);
-                    
-                    if (s2[i] === '-') {
-                        if ((s1[i+1] === 'B' || s1[i] === 'D') && s2[i-1] !== 'B') {
-                             // Necesita quedarse
-                        }
-                        // Lógica simplificada para asegurar P
-                        if (s2[i-1] === 'I' || s2[i-1] === 'P') s2[i] = 'P';
-                    }
+                // Supervisor 1 arranca en D0
+                fillPerson(s1, 0);
 
-                    // S3 entra cuando uno de los otros dos va a bajar
-                    if (i + inductionDays + 1 < total) {
-                        if ((s1[i+inductionDays+1] === 'B' || s2[i+inductionDays+1] === 'B') && s3[i] === '-') {
-                            s3[i] = 'S';
-                            for(let k=1; k<=inductionDays; k++) s3[i+k] = 'I';
+                // Lógica de Relevos Dinámica
+                for (let i = 0; i < total; i++) {
+                    // Supervisor 2 arranca con S1 para asegurar cobertura inicial
+                    if (i === 0) {
+                        s2[0] = 'S';
+                        for(let k=1; k<=inductionDays; k++) s2[k] = 'I';
+                    }
+                    if (s2[i-1] === 'I' || s2[i-1] === 'P') if(s2[i] === '-') s2[i] = 'P';
+
+                    // Supervisor 3: Sube cuando S1 o S2 van a bajar para cubrir la inducción
+                    let triggerDay = i + inductionDays + 1;
+                    if (triggerDay < total) {
+                        if ((s1[triggerDay] === 'B' || s2[triggerDay] === 'B') && s3[i] === '-') {
+                            // Solo sube si no estuvo trabajando recientemente
+                            let recentlyWorked = false;
+                            for(let j=1; j<offDays; j++) if(i-j >= 0 && s3[i-j] !== '-' && s3[i-j] !== 'D') recentlyWorked = true;
+                            
+                            if (!recentlyWorked) {
+                                s3[i] = 'S';
+                                for(let k=1; k<=inductionDays && (i+k)<total; k++) s3[i+k] = 'I';
+                            }
                         }
                     }
-                    if (s3[i-1] === 'I' || s3[i-1] === 'P') {
-                        if (s3[i] === '-') s3[i] = 'P';
-                    }
+                    if (s3[i-1] === 'I' || s3[i-1] === 'P') if(s3[i] === '-') s3[i] = 'P';
 
-                    // Limpieza de bajadas para S2 y S3 si hay exceso
-                    if (drillers > 2) {
-                        if (s3[i] === 'P' && s1[i] === 'P' && s2[i] === 'P') s3[i] = 'B';
+                    // Lógica de bajada para relevos (S2 y S3) si ya hay 2 personas en P
+                    let activosP = (s1[i]==='P'?1:0) + (s2[i]==='P'?1:0) + (s3[i]==='P'?1:0);
+                    if (activosP > 2) {
+                        if (s3[i] === 'P') {
+                            s3[i] = 'B';
+                            for(let k=1; k<offDays && (i+k)<total; k++) s3[i+k] = 'D';
+                        } else if (s2[i] === 'P' && s1[i] === 'P') {
+                            s2[i] = 'B';
+                            for(let k=1; k<offDays && (i+k)<total; k++) s2[i+k] = 'D';
+                        }
                     }
                 }
 
@@ -103,34 +108,35 @@
             }, [config]);
 
             return (
-                <div className="p-8">
-                    <div className="card p-6 mb-6 flex flex-wrap gap-8 items-end border-l-8 border-blue-600">
-                        <div>
-                            <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">MineraOS Devmonark</h1>
-                            <p className="text-slate-500 text-sm font-bold">Control de Relevos Críticos</p>
+                <div className="p-4 md:p-8">
+                    <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border-t-4 border-blue-600">
+                        <div className="flex justify-between items-center mb-6">
+                            <h1 className="text-xl font-black text-slate-800 uppercase italic">MineraOS <span className="text-blue-600">Devmonark</span></h1>
+                            <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tighter">Operación Segura</div>
                         </div>
-                        {['workDays', 'offDays', 'inductionDays', 'totalDrillDays'].map(key => (
-                            <div key={key} className="w-32">
-                                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">
-                                    {key === 'workDays' ? 'Ciclo Trabajo' : key === 'offDays' ? 'Descanso' : key === 'inductionDays' ? 'Inducción' : 'Proyección'}
-                                </label>
-                                <input 
-                                    type="number" 
-                                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-blue-500 transition-all"
-                                    value={config[key]} 
-                                    onChange={e => setConfig({...config, [key]: parseInt(e.target.value) || 0})} 
-                                />
-                            </div>
-                        ))}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[
+                                {label: 'Días Trabajo', k: 'workDays'},
+                                {label: 'Días Descanso', k: 'offDays'},
+                                {label: 'Inducción', k: 'inductionDays'},
+                                {label: 'Proyección', k: 'totalDrillDays'}
+                            ].map(item => (
+                                <div key={item.k}>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{item.label}</label>
+                                    <input type="number" className="w-full border-2 border-slate-100 rounded-lg p-2 font-black text-slate-700 focus:border-blue-500 outline-none" 
+                                           value={config[item.k]} onChange={e => setConfig({...config, [item.k]: parseInt(e.target.value) || 0})} />
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
-                    <div className="card overflow-hidden">
+                    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                         <div className="overflow-x-auto custom-scroll">
                             <div className="inline-block min-w-full">
                                 <div className="flex bg-slate-800 text-white">
-                                    <div className="w-40 shrink-0 h-10 flex items-center px-4 text-[10px] font-black uppercase sticky left-0 bg-slate-800 z-20">Supervisor</div>
+                                    <div className="w-40 shrink-0 h-10 flex items-center px-4 text-[10px] font-bold sticky left-0 bg-slate-800 z-20 border-r border-slate-700">SUPERVISOR</div>
                                     {data.counts.map((_, i) => (
-                                        <div key={i} className="cell border-slate-700 text-[10px]">{i}</div>
+                                        <div key={i} className="cell border-slate-700 text-[9px] opacity-50">D{i}</div>
                                     ))}
                                 </div>
                                 {[
@@ -138,8 +144,8 @@
                                     {n: 'Supervisor 2', d: data.s2},
                                     {n: 'Supervisor 3', d: data.s3}
                                 ].map((row, idx) => (
-                                    <div key={idx} className="flex">
-                                        <div className="w-40 shrink-0 h-10 flex items-center px-4 text-xs font-black text-slate-700 sticky left-0 bg-white z-10 border-r-2 border-slate-100">{row.n}</div>
+                                    <div key={idx} className="flex border-b border-slate-100">
+                                        <div className="w-40 shrink-0 h-10 flex items-center px-4 text-xs font-bold text-slate-600 sticky left-0 bg-white z-10 border-r-2 border-slate-50">{row.n}</div>
                                         {row.d.slice(0, config.totalDrillDays).map((v, i) => (
                                             <div key={i} className={`cell ${v==='S'?'s-sub':v==='I'?'s-ind':v==='P'?'s-prf':v==='B'?'s-baj':'s-des'}`}>
                                                 {v === '-' || v === 'D' ? '' : v}
@@ -147,10 +153,10 @@
                                         ))}
                                     </div>
                                 ))}
-                                <div className="flex bg-slate-100 border-t-2 border-slate-300">
-                                    <div className="w-40 shrink-0 h-10 flex items-center px-4 text-[10px] font-black text-slate-500 uppercase sticky left-0 bg-slate-100 z-10">Cobertura (P)</div>
+                                <div className="flex bg-slate-50 font-black">
+                                    <div className="w-40 shrink-0 h-10 flex items-center px-4 text-[10px] text-slate-500 sticky left-0 bg-slate-50 z-10 border-r-2 border-slate-200 uppercase">Cobertura (P)</div>
                                     {data.counts.map((c, i) => (
-                                        <div key={i} className={`cell ${c < 2 && i > config.inductionDays ? 'bg-red-100 text-red-600' : 'text-slate-600'}`}>{c}</div>
+                                        <div key={i} className={`cell ${c < 2 && i > config.inductionDays ? 'text-red-600 bg-red-50' : 'text-slate-600'}`}>{c}</div>
                                     ))}
                                 </div>
                             </div>
