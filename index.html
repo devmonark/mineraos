@@ -4,72 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MineraOS - Devmonark</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="minero.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="minero.png">
-
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-        
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; overflow-x: hidden; }
-        .card { background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); border-radius: 12px; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; }
+        .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .cell { min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 600; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
         .s-sub { background-color: #dbeafe; color: #1e40af; }
         .s-ind { background-color: #fef3c7; color: #92400e; }
         .s-prf { background-color: #d1fae5; color: #065f46; }
         .s-baj { background-color: #fee2e2; color: #991b1b; }
         .s-des { background-color: #f8fafc; color: #94a3b8; font-weight: 400; }
-        input[type="number"] { border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 0.875rem; width: 100%; outline: none; }
-        .custom-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scroll::-webkit-scrollbar { height: 8px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body>
     <div id="root"></div>
-
     <script type="text/babel">
         const { useState, useMemo } = React;
 
         const App = () => {
             const [config, setConfig] = useState({
                 workDays: 14,
-                offDays: 7,
-                inductionDays: 5,
-                totalDrillDays: 60
+                offDays: 6,
+                inductionDays: 2,
+                totalDrillDays: 33
             });
 
             const data = useMemo(() => {
                 const { workDays, offDays, inductionDays, totalDrillDays } = config;
-                const total = totalDrillDays + 30; // Margen para cálculos
+                const total = totalDrillDays + 50; 
                 let s1 = Array(total).fill('-');
                 let s2 = Array(total).fill('-');
                 let s3 = Array(total).fill('-');
                 
-                // Lógica Supervisor 1
+                // --- LÓGICA SUPERVISOR 1 (EL PATRÓN) ---
                 let d = 0;
                 while (d < total) {
-                    s1[d++] = 'S';
-                    for(let i=0; i<inductionDays && d<total; i++) s1[d++] = 'I';
-                    for(let i=0; i<(workDays-1-inductionDays) && d<total; i++) s1[d++] = 'P';
-                    if(d<total) s1[d++] = 'B';
-                    for(let i=0; i<(offDays-1) && d<total; i++) s1[d++] = 'D';
+                    s1[d++] = 'S'; // Día 0: Subida
+                    for(let i=0; i<inductionDays && d<total; i++) s1[d++] = 'I'; // Inducción
+                    // CORRECCIÓN: Trabaja hasta completar el día workDays - 1
+                    // Si workDays es 14, llega hasta el D13 trabajando.
+                    for(let i=0; i<(workDays - inductionDays - 1) && d<total; i++) s1[d++] = 'P';
+                    if(d<total) s1[d++] = 'B'; // Bajada en el día D14 exacto
+                    for(let i=0; i<(offDays - 1) && d<total; i++) s1[d++] = 'D'; // Descanso
                 }
 
-                // Lógica Inicial Supervisor 2
+                // --- LÓGICA DE RELEVOS (S2 y S3) ---
                 let d2 = 0; s2[d2++] = 'S';
                 for(let i=0; i<inductionDays; i++) s2[d2++] = 'I';
 
-                // Motor de distribución original corregido
                 for (let i = 0; i < total; i++) {
                     const daysAhead = inductionDays + 1;
                     if (i + daysAhead < total) {
                         const s1Baja = s1[i+daysAhead] === 'B';
                         const s2Baja = s2[i+daysAhead] === 'B';
                         
+                        // Si alguien baja en el futuro, S3 debe subir para relevar
                         if ((s1Baja || s2Baja) && s3[i] === '-') {
                             const recentS3 = s3.slice(Math.max(0, i-offDays), i).some(x => x !== '-' && x !== 'D');
                             if (!recentS3) {
@@ -81,24 +76,23 @@
 
                     let drillers = (s1[i]==='P'?1:0);
                     
-                    // Procesar S2
+                    // Lógica para que S2 y S3 se mantengan en P si hay hueco
                     if ((s2[i]==='-' || s2[i]==='P') && (['I','P','S'].includes(i>0?s2[i-1]:'-'))) {
                         if (drillers < 2 || s2[i-1]==='P') s2[i] = 'P';
                     }
                     if (s2[i]==='P') drillers++;
 
-                    // Procesar S3
-                    if ((s3[i]==='-' || s3[i]==='P') && (['I','P'].includes(i>0?s3[i-1]:'-'))) {
+                    if ((s3[i]==='-' || s3[i]==='P') && (['I','P','S'].includes(i>0?s3[i-1]:'-'))) {
                         if (drillers < 2 || s3[i-1]==='P') s3[i] = 'P';
                     }
                     if (s3[i]==='P') drillers++;
 
-                    // Validación de densidad (3 supervisores = bajada inmediata de uno)
+                    // Regla de bajada si hay sobre-población (más de 2 en P)
                     if (drillers > 2) {
-                        if (s2[i]==='P') {
+                        if (s2[i]==='P' && s1[i]==='P' && s3[i]==='P') {
                             s2[i]='B'; for(let k=1;k<offDays&&(i+k)<total;k++) s2[i+k]='D';
                             if(i+offDays<total) s2[i+offDays]='S';
-                        } else if (s3[i]==='P') {
+                        } else if (s3[i]==='P' && drillers > 2) {
                             s3[i]='B'; for(let k=1;k<offDays&&(i+k)<total;k++) s3[i+k]='D';
                         }
                     }
@@ -109,53 +103,51 @@
                 for(let i=0; i<totalDrillDays; i++){
                     const c = (s1[i]==='P'?1:0) + (s2[i]==='P'?1:0) + (s3[i]==='P'?1:0);
                     counts.push(c);
-                    // Regla de negocio: mínimo 2 activos en P después de la inducción inicial
                     if (i > inductionDays + 1 && c < 2) {
-                        errors.push({ d: i, m: `Déficit: Solo ${c} activos.` });
+                        errors.push({ d: i, m: `Déficit crítico: Solo ${c} en P.` });
                     }
                 }
                 return { s1, s2, s3, counts, errors };
             }, [config]);
 
             const update = (key, val) => {
-                const num = parseInt(val);
-                setConfig(prev => ({ ...prev, [key]: isNaN(num) ? 0 : num }));
+                const n = parseInt(val) || 0;
+                setConfig(prev => ({ ...prev, [key]: n }));
             };
 
             return (
                 <div className="min-h-screen p-6 flex flex-col gap-6">
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-end">
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight text-slate-900">MineraOS Devmonark</h1>
-                            <p className="text-sm text-slate-500 font-medium">Panel de Planificación y Control de Relevos</p>
+                            <h1 className="text-3xl font-bold text-slate-900">MineraOS Devmonark</h1>
+                            <p className="text-slate-500 font-medium">Planificación de Relevos Críticos</p>
                         </div>
-                        <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">Estado Normativo</p>
-                            <p className={`text-sm font-bold ${data.errors.length > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                                {data.errors.length > 0 ? `${data.errors.length} Incidencias Detectadas` : 'Cumplimiento 100%'}
-                            </p>
+                        <div className={`px-4 py-2 rounded-lg font-bold text-sm ${data.errors.length > 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                            {data.errors.length > 0 ? `${data.errors.length} Incidencias` : 'Cumplimiento 100%'}
                         </div>
                     </div>
 
                     <div className="flex flex-col lg:flex-row gap-6">
-                        <div className="w-full lg:w-64 shrink-0 flex flex-col gap-4">
-                            <div className="card p-5 space-y-4">
-                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Configuración</h3>
-                                {['workDays', 'offDays', 'inductionDays', 'totalDrillDays'].map(key => (
-                                    <div key={key}>
-                                        <label className="text-xs font-medium text-slate-600 mb-1 block">
-                                            {key === 'workDays' ? 'Ciclo Trabajo' : key === 'offDays' ? 'Ciclo Descanso' : key === 'inductionDays' ? 'Inducción' : 'Proyección Total'}
-                                        </label>
-                                        <input type="number" value={config[key]} onChange={e => update(key, e.target.value)} />
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="w-full lg:w-72 shrink-0 card p-6 space-y-6">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Configuración</h3>
+                            {[
+                                { k: 'workDays', l: 'Ciclo Trabajo (días)' },
+                                { k: 'offDays', l: 'Ciclo Descanso (días)' },
+                                { k: 'inductionDays', l: 'Días Inducción' },
+                                { k: 'totalDrillDays', l: 'Proyección (Días)' }
+                            ].map(item => (
+                                <div key={item.k}>
+                                    <label className="text-xs font-semibold text-slate-600 mb-2 block">{item.l}</label>
+                                    <input type="number" className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                                           value={config[item.k]} onChange={e => update(item.k, e.target.value)} />
+                                </div>
+                            ))}
                         </div>
 
                         <div className="flex-1 card overflow-hidden flex flex-col">
-                            <div className="overflow-x-auto custom-scroll flex-1">
+                            <div className="overflow-x-auto custom-scroll">
                                 <div className="inline-block min-w-full align-middle">
-                                    <div className="flex border-b border-slate-100 bg-slate-50/50">
+                                    <div className="flex bg-slate-50 border-b border-slate-100">
                                         <div className="w-32 h-10 flex items-center px-4 text-[10px] font-bold text-slate-400 uppercase sticky left-0 bg-slate-50 z-10">Supervisor</div>
                                         {data.counts.map((_, i) => <div key={i} className="cell text-[9px] text-slate-400">D{i}</div>)}
                                     </div>
@@ -173,23 +165,29 @@
                                             })}
                                         </div>
                                     ))}
-                                    <div className="flex bg-slate-50/80 font-bold text-xs">
-                                        <div className="w-32 h-10 flex items-center px-4 text-[10px] text-slate-600 uppercase sticky left-0 bg-slate-100 z-10 border-r border-slate-100">Cobertura</div>
-                                        {data.counts.map((c, i) => {
-                                            const isError = i > config.inductionDays + 1 && c < 2;
-                                            return <div key={i} className={`cell ${isError ? 'bg-red-500 text-white' : 'text-slate-600'}`}>{c}</div>
-                                        })}
+                                    <div className="flex bg-slate-100/50 font-bold">
+                                        <div className="w-32 h-10 flex items-center px-4 text-[10px] text-slate-500 uppercase sticky left-0 bg-slate-100 z-10 border-r border-slate-200">Cobertura (P)</div>
+                                        {data.counts.map((c, i) => (
+                                            <div key={i} className={`cell ${i > config.inductionDays + 1 && c < 2 ? 'bg-red-500 text-white' : 'text-slate-600'}`}>{c}</div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="card p-5">
+                    <div className="card p-6">
                         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Auditoría de Cumplimiento</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                            {data.errors.length === 0 ? <p className="text-xs text-emerald-600">Operación segura.</p> : 
-                            data.errors.map((err, i) => <p key={i} className="text-[10px] text-red-600 bg-red-50 p-2 rounded">Día {err.d}: {err.m}</p>)}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                            {data.errors.length === 0 ? 
+                                <div className="col-span-full p-4 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-medium border border-emerald-100">Operación segura: Cobertura de 2 supervisores garantizada.</div> : 
+                                data.errors.map((err, i) => (
+                                    <div key={i} className="p-3 bg-red-50 border border-red-100 rounded-lg flex justify-between items-center">
+                                        <span className="text-[10px] font-black text-red-700">DÍA {err.d}</span>
+                                        <span className="text-[10px] text-red-600 font-bold">{err.m}</span>
+                                    </div>
+                                ))
+                            }
                         </div>
                     </div>
                 </div>
