@@ -23,7 +23,7 @@
         .s-prf { background-color: #d1fae5; color: #065f46; }
         .s-baj { background-color: #fee2e2; color: #991b1b; }
         .s-des { background-color: #f8fafc; color: #94a3b8; font-weight: 400; }
-        input[type="number"] { border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 0.875rem; width: 100%; outline: none; transition: all 0.2s; }
+        input[type="number"] { border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 0.875rem; width: 100%; outline: none; }
         .custom-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
@@ -44,11 +44,12 @@
 
             const data = useMemo(() => {
                 const { workDays, offDays, inductionDays, totalDrillDays } = config;
-                const total = totalDrillDays + 20;
+                const total = totalDrillDays + 30; // Margen para cálculos
                 let s1 = Array(total).fill('-');
                 let s2 = Array(total).fill('-');
                 let s3 = Array(total).fill('-');
                 
+                // Lógica Supervisor 1
                 let d = 0;
                 while (d < total) {
                     s1[d++] = 'S';
@@ -58,14 +59,17 @@
                     for(let i=0; i<(offDays-1) && d<total; i++) s1[d++] = 'D';
                 }
 
+                // Lógica Inicial Supervisor 2
                 let d2 = 0; s2[d2++] = 'S';
                 for(let i=0; i<inductionDays; i++) s2[d2++] = 'I';
 
+                // Motor de distribución original corregido
                 for (let i = 0; i < total; i++) {
                     const daysAhead = inductionDays + 1;
                     if (i + daysAhead < total) {
                         const s1Baja = s1[i+daysAhead] === 'B';
                         const s2Baja = s2[i+daysAhead] === 'B';
+                        
                         if ((s1Baja || s2Baja) && s3[i] === '-') {
                             const recentS3 = s3.slice(Math.max(0, i-offDays), i).some(x => x !== '-' && x !== 'D');
                             if (!recentS3) {
@@ -74,17 +78,22 @@
                             }
                         }
                     }
-                    
+
                     let drillers = (s1[i]==='P'?1:0);
+                    
+                    // Procesar S2
                     if ((s2[i]==='-' || s2[i]==='P') && (['I','P','S'].includes(i>0?s2[i-1]:'-'))) {
                         if (drillers < 2 || s2[i-1]==='P') s2[i] = 'P';
                     }
                     if (s2[i]==='P') drillers++;
+
+                    // Procesar S3
                     if ((s3[i]==='-' || s3[i]==='P') && (['I','P'].includes(i>0?s3[i-1]:'-'))) {
                         if (drillers < 2 || s3[i-1]==='P') s3[i] = 'P';
                     }
                     if (s3[i]==='P') drillers++;
 
+                    // Validación de densidad (3 supervisores = bajada inmediata de uno)
                     if (drillers > 2) {
                         if (s2[i]==='P') {
                             s2[i]='B'; for(let k=1;k<offDays&&(i+k)<total;k++) s2[i+k]='D';
@@ -100,21 +109,24 @@
                 for(let i=0; i<totalDrillDays; i++){
                     const c = (s1[i]==='P'?1:0) + (s2[i]==='P'?1:0) + (s3[i]==='P'?1:0);
                     counts.push(c);
-                    // AQUÍ ESTÁN LAS ALERTAS RESTAURADAS
-                    if (i > inductionDays && c < 2) {
-                        errors.push({ d: i, m: `Déficit crítico de cobertura: Solo ${c} supervisor activo.` });
+                    // Regla de negocio: mínimo 2 activos en P después de la inducción inicial
+                    if (i > inductionDays + 1 && c < 2) {
+                        errors.push({ d: i, m: `Déficit: Solo ${c} activos.` });
                     }
                 }
                 return { s1, s2, s3, counts, errors };
             }, [config]);
 
-            const update = (key, val) => setConfig(prev => ({ ...prev, [key]: parseInt(val) || 0 }));
+            const update = (key, val) => {
+                const num = parseInt(val);
+                setConfig(prev => ({ ...prev, [key]: isNaN(num) ? 0 : num }));
+            };
 
             return (
                 <div className="min-h-screen p-6 flex flex-col gap-6">
                     <div className="flex justify-between items-center">
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight text-slate-900">MineraOS - Devmonark</h1>
+                            <h1 className="text-2xl font-bold tracking-tight text-slate-900">MineraOS Devmonark</h1>
                             <p className="text-sm text-slate-500 font-medium">Panel de Planificación y Control de Relevos</p>
                         </div>
                         <div className="text-right">
@@ -129,9 +141,14 @@
                         <div className="w-full lg:w-64 shrink-0 flex flex-col gap-4">
                             <div className="card p-5 space-y-4">
                                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Configuración</h3>
-                                <div><label className="text-xs font-medium text-slate-600 mb-1 block">Ciclo Trabajo</label><input type="number" value={config.workDays} onChange={e => update('workDays', e.target.value)} /></div>
-                                <div><label className="text-xs font-medium text-slate-600 mb-1 block">Ciclo Descanso</label><input type="number" value={config.offDays} onChange={e => update('offDays', e.target.value)} /></div>
-                                <div><label className="text-xs font-medium text-slate-600 mb-1 block">Inducción (días)</label><input type="number" value={config.inductionDays} onChange={e => update('inductionDays', e.target.value)} /></div>
+                                {['workDays', 'offDays', 'inductionDays', 'totalDrillDays'].map(key => (
+                                    <div key={key}>
+                                        <label className="text-xs font-medium text-slate-600 mb-1 block">
+                                            {key === 'workDays' ? 'Ciclo Trabajo' : key === 'offDays' ? 'Ciclo Descanso' : key === 'inductionDays' ? 'Inducción' : 'Proyección Total'}
+                                        </label>
+                                        <input type="number" value={config[key]} onChange={e => update(key, e.target.value)} />
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
@@ -156,10 +173,10 @@
                                             })}
                                         </div>
                                     ))}
-                                    <div className="flex bg-slate-50/80 font-bold">
+                                    <div className="flex bg-slate-50/80 font-bold text-xs">
                                         <div className="w-32 h-10 flex items-center px-4 text-[10px] text-slate-600 uppercase sticky left-0 bg-slate-100 z-10 border-r border-slate-100">Cobertura</div>
                                         {data.counts.map((c, i) => {
-                                            const isError = i > config.inductionDays && c < 2;
+                                            const isError = i > config.inductionDays + 1 && c < 2;
                                             return <div key={i} className={`cell ${isError ? 'bg-red-500 text-white' : 'text-slate-600'}`}>{c}</div>
                                         })}
                                     </div>
@@ -169,10 +186,10 @@
                     </div>
 
                     <div className="card p-5">
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Detalle de Incidencias</h3>
-                        <div className="space-y-2">
-                            {data.errors.length === 0 ? <p className="text-xs text-emerald-600 font-medium">Operación segura. Cobertura completa.</p> : 
-                            data.errors.slice(0, 5).map((err, i) => <p key={i} className="text-[10px] text-red-600 bg-red-50 p-2 rounded">Día {err.d}: {err.m}</p>)}
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Auditoría de Cumplimiento</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                            {data.errors.length === 0 ? <p className="text-xs text-emerald-600">Operación segura.</p> : 
+                            data.errors.map((err, i) => <p key={i} className="text-[10px] text-red-600 bg-red-50 p-2 rounded">Día {err.d}: {err.m}</p>)}
                         </div>
                     </div>
                 </div>
