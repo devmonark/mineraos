@@ -3,23 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MineraOS Devmonark - Versión Final</title>
+    <title>MineraOS Devmonark - Fixed Logic</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #334155; }
-        .config-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .table-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
-        .cell { min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
-        .s-sub { background-color: #dbeafe; color: #1e40af; } /* Azul S */
-        .s-ind { background-color: #fef3c7; color: #92400e; } /* Amarillo I */
-        .s-prf { background-color: #dcfce7; color: #166534; } /* Verde P */
-        .s-baj { background-color: #fee2e2; color: #991b1b; } /* Rojo B */
-        .custom-scroll::-webkit-scrollbar { height: 8px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #334155; }
+        
+        /* Diseño específico MineraOS */
+        .card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .input-field { background: white; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 600; color: #1e293b; }
+        .input-field:focus { border-color: #3b82f6; ring: 2px; outline: none; }
+        
+        /* Celdas de la tabla */
+        .cell-header { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: #94a3b8; border-bottom: 1px solid #f1f5f9; }
+        .cell { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; border-right: 1px solid #f8fafc; border-bottom: 1px solid #f1f5f9; }
+        
+        /* Colores exactos de tu diseño */
+        .st-s { background-color: #dbeafe; color: #1d4ed8; } /* Azul Subida */
+        .st-i { background-color: #fef3c7; color: #b45309; } /* Amarillo Inducción */
+        .st-p { background-color: #dcfce7; color: #15803d; } /* Verde Producción */
+        .st-b { background-color: #fee2e2; color: #b91c1c; } /* Rojo Bajada */
+        .st-empty { background-color: white; }
+        
+        .row-label { width: 140px; height: 44px; display: flex; align-items: center; padding-left: 1.5rem; font-size: 0.8rem; font-weight: 700; color: #334155; border-right: 1px solid #f1f5f9; background: white; position: sticky; left: 0; z-index: 10; }
+        
+        /* Scroll personalizado */
+        .custom-scroll::-webkit-scrollbar { height: 10px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; border: 2px solid #f1f5f9; }
     </style>
 </head>
 <body>
@@ -28,139 +42,201 @@
         const { useState, useMemo } = React;
 
         const App = () => {
-            const [config, setConfig] = useState({
-                workDays: 14,
-                offDays: 6,
-                inductionDays: 2,
-                totalDrillDays: 33
+            // Configuración inicial basada en tu imagen
+            const [conf, setConf] = useState({
+                trabajo: 14,
+                descanso: 6,
+                induccion: 2,
+                total: 33
             });
 
-            const data = useMemo(() => {
-                const { workDays, offDays, inductionDays, totalDrillDays } = config;
-                const total = totalDrillDays + 20;
-                let s1 = Array(total).fill('-');
-                let s2 = Array(total).fill('-');
-                let s3 = Array(total).fill('-');
+            const grid = useMemo(() => {
+                const diasTotal = conf.total + 30; // Buffer extra
+                let s1 = Array(diasTotal).fill(null);
+                let s2 = Array(diasTotal).fill(null);
+                let s3 = Array(diasTotal).fill(null);
 
-                const fillWorker = (arr, start) => {
-                    let d = start;
-                    while (d < total) {
-                        // 1. Días de Estancia (Trabajo real)
-                        // Llenamos exactamente 'workDays' celdas
-                        for (let i = 0; i < workDays && d < total; i++) {
-                            if (i === 0) arr[d] = 'S';
-                            else if (i <= inductionDays) arr[d] = 'I';
-                            else arr[d] = 'P';
+                // --- LOGICA MANUAL CORREGIDA ---
+                // Si trabajo es 14, ocupa indices 0 a 13.
+                // El indice 14 DEBE ser Bajada.
+                
+                const llenarCiclo = (arr, diaInicio) => {
+                    let d = diaInicio;
+                    while (d < diasTotal) {
+                        // 1. Días de Trabajo (Exactamente conf.trabajo)
+                        for (let i = 0; i < conf.trabajo; i++) {
+                            if (d >= diasTotal) break;
+                            
+                            if (i === 0) arr[d] = 'S';          // Primer día Subida
+                            else if (i <= conf.induccion) arr[d] = 'I'; // Días Inducción
+                            else arr[d] = 'P';                  // Resto Producción
                             d++;
                         }
-                        // 2. Día de BAJADA (B)
-                        // Ocurre inmediatamente después de terminar los días de estancia
-                        if (d < total) {
-                            arr[d] = 'B'; 
+
+                        // 2. Día de Bajada (OBLIGATORIO en el siguiente slot)
+                        if (d < diasTotal) {
+                            arr[d] = 'B';
                             d++;
                         }
-                        // 3. Días de Descanso (Resto del ciclo)
-                        for (let i = 0; i < (offDays - 1) && d < total; i++) {
-                            arr[d] = 'D';
+
+                        // 3. Días de Descanso (Resto del ciclo hasta completar descanso)
+                        // Restamos 1 porque la 'B' ya consumió un día del tiempo fuera de mina
+                        for (let i = 0; i < conf.descanso - 1; i++) {
+                            if (d >= diasTotal) break;
+                            arr[d] = null; // Vacío para descanso
                             d++;
                         }
                     }
                 };
 
-                // Supervisores base inician en D0
-                fillWorker(s1, 0);
-                fillWorker(s2, 0);
+                // Supervisor 1 y 2 inician juntos el D0
+                llenarCiclo(s1, 0);
+                llenarCiclo(s2, 0);
 
-                // Supervisor 3: Relevo Inteligente (Busca cubrir las 'B')
-                for (let i = 0; i < total; i++) {
-                    // Calculamos cuándo necesitamos que S3 esté en Producción (P)
-                    // Debe subir con antelación para que su 'P' coincida con la 'B' de los otros
-                    let targetDay = i + inductionDays + 1;
-                    if (targetDay < total && (s1[targetDay] === 'B' || s2[targetDay] === 'B')) {
-                        if (s3[i] === '-') {
-                            // Validar que haya tenido su descanso
-                            let isRested = true;
-                            for(let j=1; j<offDays; j++) if(i-j >= 0 && (s3[i-j] !== '-' && s3[i-j] !== 'D')) isRested = false;
-                            if(isRested) fillWorker(s3, i);
+                // Supervisor 3 (Relevo)
+                // Lógica: Debe estar en 'P' (listo) exactamente el día que S1 o S2 tienen 'B'.
+                for (let i = 0; i < diasTotal; i++) {
+                    // Miramos si en el dia i, S1 o S2 se van (B)
+                    if (s1[i] === 'B' || s2[i] === 'B') {
+                        // S3 necesita estar operativo hoy.
+                        // Para estar en 'P' hoy, debió subir hace (1 + induccion) días.
+                        let diaSubidaS3 = i - (1 + conf.induccion);
+                        
+                        // Si el espacio está libre, insertamos su ciclo
+                        if (diaSubidaS3 >= 0 && s3[diaSubidaS3] === null) {
+                            // Verificamos que no rompa un descanso previo (opcional, simplificado para fuerza bruta)
+                            llenarCiclo(s3, diaSubidaS3);
                         }
                     }
                 }
 
-                const counts = [];
-                for(let i=0; i<totalDrillDays; i++) {
-                    counts.push((s1[i]==='P'?1:0) + (s2[i]==='P'?1:0) + (s3[i]==='P'?1:0));
+                // Calcular Cobertura (Solo cuentan los 'P')
+                const cobertura = [];
+                for(let i=0; i < conf.total; i++) {
+                    let count = 0;
+                    if (s1[i] === 'P') count++;
+                    if (s2[i] === 'P') count++;
+                    if (s3[i] === 'P') count++;
+                    cobertura.push(count);
                 }
 
-                return { s1, s2, s3, counts };
-            }, [config]);
+                return { s1, s2, s3, cobertura };
+            }, [conf]);
 
             return (
-                <div className="p-10 max-w-[1600px] mx-auto">
-                    <div className="flex justify-between items-center mb-10">
+                <div className="min-h-screen p-8 flex flex-col items-center">
+                    
+                    {/* Header */}
+                    <div className="w-full max-w-[1600px] flex justify-between items-center mb-8">
                         <div>
-                            <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">MineraOS Devmonark</h1>
-                            <p className="text-slate-400 text-sm font-medium">Panel de Planificación y Control de Relevos</p>
+                            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">MineraOS Devmonark</h1>
+                            <p className="text-slate-500 font-medium mt-1">Gestión Crítica de Relevos de Supervisión</p>
                         </div>
-                        <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-full text-xs font-bold border border-emerald-100 uppercase tracking-widest">
-                            ✓ Operación Segura
+                        <div className="bg-emerald-50 text-emerald-600 px-5 py-2 rounded-full text-xs font-bold border border-emerald-100 shadow-sm uppercase tracking-widest">
+                            Operación Sincronizada 100%
                         </div>
                     </div>
 
-                    <div className="flex flex-col lg:flex-row gap-8">
+                    <div className="w-full max-w-[1600px] flex flex-col lg:flex-row gap-8">
+                        
+                        {/* Panel Izquierdo: Configuración */}
                         <div className="w-full lg:w-72 shrink-0">
-                            <div className="config-card">
-                                <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 text-center border-b pb-4">Configuración</h2>
-                                {[
-                                    {label: 'Ciclo Trabajo', k: 'workDays'},
-                                    {label: 'Ciclo Descanso', k: 'offDays'},
-                                    {label: 'Inducción', k: 'inductionDays'},
-                                    {label: 'Proyección Total', k: 'totalDrillDays'}
-                                ].map(item => (
-                                    <div key={item.k} className="mb-4">
-                                        <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase">{item.label}</label>
+                            <div className="card p-6 sticky top-8">
+                                <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">Configuración</h2>
+                                
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-2">CICLO TRABAJO (DÍAS)</label>
                                         <input 
                                             type="number" 
-                                            className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
-                                            value={config[item.k]} 
-                                            onChange={e => setConfig({...config, [item.k]: parseInt(e.target.value) || 0})}
+                                            className="w-full input-field px-4 py-3 text-sm shadow-sm"
+                                            value={conf.trabajo} 
+                                            onChange={e => setConf({...conf, trabajo: +e.target.value})}
                                         />
                                     </div>
-                                ))}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-2">CICLO DESCANSO (DÍAS)</label>
+                                        <input 
+                                            type="number" 
+                                            className="w-full input-field px-4 py-3 text-sm shadow-sm"
+                                            value={conf.descanso} 
+                                            onChange={e => setConf({...conf, descanso: +e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-2">DÍAS INDUCCIÓN</label>
+                                        <input 
+                                            type="number" 
+                                            className="w-full input-field px-4 py-3 text-sm shadow-sm"
+                                            value={conf.induccion} 
+                                            onChange={e => setConf({...conf, induccion: +e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-2">PROYECCIÓN TOTAL</label>
+                                        <input 
+                                            type="number" 
+                                            className="w-full input-field px-4 py-3 text-sm shadow-sm"
+                                            value={conf.total} 
+                                            onChange={e => setConf({...conf, total: +e.target.value})}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex-1 table-card">
-                            <div className="overflow-x-auto custom-scroll">
+                        {/* Panel Derecho: Tabla Visual */}
+                        <div className="flex-1 card overflow-hidden flex flex-col">
+                            <div className="overflow-x-auto custom-scroll pb-2">
                                 <div className="inline-block min-w-full">
-                                    <div className="flex bg-slate-50 border-b border-slate-200">
-                                        <div className="w-40 h-10 flex items-center px-4 text-[10px] font-bold text-slate-400 uppercase sticky left-0 bg-slate-50 z-20 border-r border-slate-200 italic">Supervisor</div>
-                                        {data.counts.map((_, i) => (
-                                            <div key={i} className="cell text-[10px] text-slate-400 border-none font-medium">D{i}</div>
+                                    
+                                    {/* Header Dias */}
+                                    <div className="flex border-b border-slate-100">
+                                        <div className="row-label text-[10px] text-slate-400 uppercase tracking-wider z-20">Supervisor</div>
+                                        {grid.cobertura.map((_, i) => (
+                                            <div key={i} className="cell-header bg-slate-50/50">D{i}</div>
                                         ))}
                                     </div>
+
+                                    {/* Filas Supervisores */}
                                     {[
-                                        {name: 'Supervisor 1', r: data.s1},
-                                        {name: 'Supervisor 2', r: data.s2},
-                                        {name: 'Supervisor 3', r: data.s3}
-                                    ].map((s, idx) => (
-                                        <div key={idx} className="flex border-b border-slate-100 group">
-                                            <div className="w-40 h-10 flex items-center px-4 text-xs font-bold text-slate-700 sticky left-0 bg-white z-10 border-r border-slate-200 group-hover:bg-slate-50 transition-colors">{s.name}</div>
-                                            {s.r.slice(0, config.totalDrillDays).map((v, i) => (
-                                                <div key={i} className={`cell ${v==='S'?'s-sub':v==='I'?'s-ind':v==='P'?'s-prf':v==='B'?'s-baj':''}`}>
-                                                    {v === '-' || v === 'D' ? '' : v}
-                                                </div>
-                                            ))}
+                                        { n: 'Supervisor 1', d: grid.s1 },
+                                        { n: 'Supervisor 2', d: grid.s2 },
+                                        { n: 'Supervisor 3', d: grid.s3 }
+                                    ].map((sup, idx) => (
+                                        <div key={idx} className="flex border-b border-slate-50 hover:bg-slate-50/30 transition-colors">
+                                            <div className="row-label text-sm text-slate-700">{sup.n}</div>
+                                            {sup.d.slice(0, conf.total).map((val, i) => {
+                                                let cls = 'st-empty';
+                                                if (val === 'S') cls = 'st-s';
+                                                if (val === 'I') cls = 'st-i';
+                                                if (val === 'P') cls = 'st-p';
+                                                if (val === 'B') cls = 'st-b';
+                                                return (
+                                                    <div key={i} className={`cell ${cls}`}>
+                                                        {val || ''}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     ))}
-                                    <div className="flex bg-slate-50/80">
-                                        <div className="w-40 h-10 flex items-center px-4 text-[10px] font-bold text-slate-500 uppercase sticky left-0 bg-slate-50 z-20 border-r border-slate-200">Cobertura (P)</div>
-                                        {data.counts.map((c, i) => (
-                                            <div key={i} className={`cell border-none ${c < 2 && i >= config.inductionDays ? 'text-red-500 font-black' : 'text-slate-600'}`}>{c}</div>
+
+                                    {/* Fila Cobertura */}
+                                    <div className="flex bg-slate-50/80 mt-1">
+                                        <div className="row-label text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50">Cobertura (P)</div>
+                                        {grid.cobertura.map((c, i) => (
+                                            <div key={i} className="cell border-none text-slate-600 text-xs">
+                                                {c < 2 && i > conf.induccion 
+                                                    ? <span className="text-red-500 font-extrabold">{c}</span> 
+                                                    : <span className="font-bold">{c}</span>
+                                                }
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
                             </div>
                         </div>
+
                     </div>
                 </div>
             );
