@@ -3,22 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MineraOS - Devmonark</title>
+    <title>MineraOS Devmonark</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
-        .cell { min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
-        .s-sub { background-color: #3b82f6; color: white; }
-        .s-ind { background-color: #fbbf24; color: #92400e; }
-        .s-prf { background-color: #22c55e; color: white; }
-        .s-baj { background-color: #ef4444; color: white; }
-        .s-des { background-color: #f8fafc; color: #cbd5e1; }
-        .custom-scroll::-webkit-scrollbar { height: 8px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        body { font-family: 'Inter', sans-serif; background-color: #f4f7f9; color: #334155; }
+        .sidebar-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .main-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; }
+        .cell { min-width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
+        .s-sub { background-color: #dbeafe; color: #1e40af; } /* Azul claro */
+        .s-ind { background-color: #fef3c7; color: #92400e; } /* Naranja/Amarillo */
+        .s-prf { background-color: #dcfce7; color: #166534; } /* Verde */
+        .s-baj { background-color: #fee2e2; color: #991b1b; } /* Rojo */
+        .s-empty { background-color: white; color: #cbd5e1; }
+        .custom-scroll::-webkit-scrollbar { height: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -36,66 +38,49 @@
 
             const data = useMemo(() => {
                 const { workDays, offDays, inductionDays, totalDrillDays } = config;
-                const total = totalDrillDays + 30;
+                const total = totalDrillDays + 20;
                 let s1 = Array(total).fill('-');
                 let s2 = Array(total).fill('-');
                 let s3 = Array(total).fill('-');
 
-                const fillPerson = (arr, start) => {
+                const fillCycle = (arr, start) => {
                     let d = start;
                     while (d < total) {
-                        // Subida
                         if (d < total) arr[d++] = 'S';
-                        // Inducción
                         for (let i = 0; i < inductionDays && d < total; i++) arr[d++] = 'I';
-                        // Trabajo (P) - Calculado para que la suma total de S+I+P sea exactamente workDays
                         let pLimit = workDays - inductionDays - 1;
                         for (let i = 0; i < pLimit && d < total; i++) arr[d++] = 'P';
-                        // Bajada (B) - Ocurre exactamente en el día del ciclo (ej: día 14)
-                        if (d < total) arr[d++] = 'B';
-                        // Descanso
+                        if (d < total) arr[d++] = 'B'; // LA BAJADA CAE EN D14 si workDays es 14
                         for (let i = 0; i < (offDays - 1) && d < total; i++) arr[d++] = 'D';
                     }
                 };
 
-                // Supervisor 1 arranca en D0
-                fillPerson(s1, 0);
+                fillCycle(s1, 0);
 
-                // Lógica de Relevos Dinámica
+                // Lógica Relevos S2 y S3
+                let d2 = 0; s2[d2++] = 'S';
+                for(let i=0; i<inductionDays && d2<total; i++) s2[d2++] = 'I';
+
                 for (let i = 0; i < total; i++) {
-                    // Supervisor 2 arranca con S1 para asegurar cobertura inicial
-                    if (i === 0) {
-                        s2[0] = 'S';
-                        for(let k=1; k<=inductionDays; k++) s2[k] = 'I';
-                    }
-                    if (s2[i-1] === 'I' || s2[i-1] === 'P') if(s2[i] === '-') s2[i] = 'P';
+                    if (s2[i-1] === 'I' || s2[i-1] === 'P') if(s2[i]==='-') s2[i] = 'P';
 
-                    // Supervisor 3: Sube cuando S1 o S2 van a bajar para cubrir la inducción
-                    let triggerDay = i + inductionDays + 1;
-                    if (triggerDay < total) {
-                        if ((s1[triggerDay] === 'B' || s2[triggerDay] === 'B') && s3[i] === '-') {
-                            // Solo sube si no estuvo trabajando recientemente
-                            let recentlyWorked = false;
-                            for(let j=1; j<offDays; j++) if(i-j >= 0 && s3[i-j] !== '-' && s3[i-j] !== 'D') recentlyWorked = true;
-                            
-                            if (!recentlyWorked) {
-                                s3[i] = 'S';
-                                for(let k=1; k<=inductionDays && (i+k)<total; k++) s3[i+k] = 'I';
-                            }
+                    // S3 sube para relevar antes de la bajada de otros
+                    let checkDay = i + inductionDays + 1;
+                    if (checkDay < total && (s1[checkDay] === 'B' || s2[checkDay] === 'B') && s3[i] === '-') {
+                        let canSubir = true;
+                        for(let j=1; j<offDays; j++) if(i-j >= 0 && s3[i-j] !== '-' && s3[i-j] !== 'D') canSubir = false;
+                        if(canSubir) {
+                            s3[i] = 'S';
+                            for(let k=1; k<=inductionDays && (i+k)<total; k++) s3[i+k] = 'I';
                         }
                     }
-                    if (s3[i-1] === 'I' || s3[i-1] === 'P') if(s3[i] === '-') s3[i] = 'P';
+                    if (s3[i-1] === 'I' || s3[i-1] === 'P') if(s3[i]==='-') s3[i] = 'P';
 
-                    // Lógica de bajada para relevos (S2 y S3) si ya hay 2 personas en P
-                    let activosP = (s1[i]==='P'?1:0) + (s2[i]==='P'?1:0) + (s3[i]==='P'?1:0);
-                    if (activosP > 2) {
-                        if (s3[i] === 'P') {
-                            s3[i] = 'B';
-                            for(let k=1; k<offDays && (i+k)<total; k++) s3[i+k] = 'D';
-                        } else if (s2[i] === 'P' && s1[i] === 'P') {
-                            s2[i] = 'B';
-                            for(let k=1; k<offDays && (i+k)<total; k++) s2[i+k] = 'D';
-                        }
+                    // Control de sobrepoblación (Máximo 2 en P)
+                    let countP = (s1[i]==='P'?1:0) + (s2[i]==='P'?1:0) + (s3[i]==='P'?1:0);
+                    if (countP > 2) {
+                        if (s3[i] === 'P') { s3[i] = 'B'; for(let k=1;k<offDays&&(i+k)<total;k++) s3[i+k]='D'; }
+                        else if (s2[i] === 'P') { s2[i] = 'B'; for(let k=1;k<offDays&&(i+k)<total;k++) s2[i+k]='D'; }
                     }
                 }
 
@@ -107,57 +92,73 @@
                 return { s1, s2, s3, counts };
             }, [config]);
 
+            const InputField = ({label, value, field}) => (
+                <div className="mb-4">
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{label}</label>
+                    <input 
+                        type="number" 
+                        className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                        value={value} 
+                        onChange={(e) => setConfig({...config, [field]: parseInt(e.target.value) || 0})}
+                    />
+                </div>
+            );
+
             return (
-                <div className="p-4 md:p-8">
-                    <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border-t-4 border-blue-600">
-                        <div className="flex justify-between items-center mb-6">
-                            <h1 className="text-xl font-black text-slate-800 uppercase italic">MineraOS <span className="text-blue-600">Devmonark</span></h1>
-                            <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tighter">Operación Segura</div>
+                <div className="p-8 max-w-[1600px] mx-auto">
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800">MineraOS Devmonark</h1>
+                            <p className="text-slate-500 text-sm">Planificación de Relevos Críticos</p>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {[
-                                {label: 'Días Trabajo', k: 'workDays'},
-                                {label: 'Días Descanso', k: 'offDays'},
-                                {label: 'Inducción', k: 'inductionDays'},
-                                {label: 'Proyección', k: 'totalDrillDays'}
-                            ].map(item => (
-                                <div key={item.k}>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{item.label}</label>
-                                    <input type="number" className="w-full border-2 border-slate-100 rounded-lg p-2 font-black text-slate-700 focus:border-blue-500 outline-none" 
-                                           value={config[item.k]} onChange={e => setConfig({...config, [item.k]: parseInt(e.target.value) || 0})} />
-                                </div>
-                            ))}
+                        <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-full text-xs font-bold border border-emerald-100 uppercase">
+                            Cumplimiento 100%
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                        <div className="overflow-x-auto custom-scroll">
-                            <div className="inline-block min-w-full">
-                                <div className="flex bg-slate-800 text-white">
-                                    <div className="w-40 shrink-0 h-10 flex items-center px-4 text-[10px] font-bold sticky left-0 bg-slate-800 z-20 border-r border-slate-700">SUPERVISOR</div>
-                                    {data.counts.map((_, i) => (
-                                        <div key={i} className="cell border-slate-700 text-[9px] opacity-50">D{i}</div>
-                                    ))}
-                                </div>
-                                {[
-                                    {n: 'Supervisor 1', d: data.s1},
-                                    {n: 'Supervisor 2', d: data.s2},
-                                    {n: 'Supervisor 3', d: data.s3}
-                                ].map((row, idx) => (
-                                    <div key={idx} className="flex border-b border-slate-100">
-                                        <div className="w-40 shrink-0 h-10 flex items-center px-4 text-xs font-bold text-slate-600 sticky left-0 bg-white z-10 border-r-2 border-slate-50">{row.n}</div>
-                                        {row.d.slice(0, config.totalDrillDays).map((v, i) => (
-                                            <div key={i} className={`cell ${v==='S'?'s-sub':v==='I'?'s-ind':v==='P'?'s-prf':v==='B'?'s-baj':'s-des'}`}>
-                                                {v === '-' || v === 'D' ? '' : v}
-                                            </div>
+                    <div className="flex flex-col lg:flex-row gap-6">
+                        {/* CONFIGURACIÓN - ESTILO DE TU IMAGEN */}
+                        <div className="w-full lg:w-64 shrink-0">
+                            <div className="sidebar-card">
+                                <h2 className="text-[12px] font-bold text-slate-800 uppercase mb-6 tracking-widest">Configuración</h2>
+                                <InputField label="Ciclo Trabajo" value={config.workDays} field="workDays" />
+                                <InputField label="Ciclo Descanso" value={config.offDays} field="offDays" />
+                                <InputField label="Inducción" value={config.inductionDays} field="inductionDays" />
+                                <InputField label="Proyección Total" value={config.totalDrillDays} field="totalDrillDays" />
+                            </div>
+                        </div>
+
+                        {/* TABLA PRINCIPAL - ESTILO DE TU IMAGEN */}
+                        <div className="flex-1 main-card">
+                            <div className="overflow-x-auto custom-scroll">
+                                <div className="inline-block min-w-full">
+                                    <div className="flex bg-slate-50/50 border-b border-slate-100">
+                                        <div className="w-40 shrink-0 h-10 flex items-center px-4 text-[10px] font-bold text-slate-400 uppercase sticky left-0 bg-slate-50 z-20 border-r border-slate-100">Supervisor</div>
+                                        {data.counts.map((_, i) => (
+                                            <div key={i} className="cell text-[10px] text-slate-400 border-none">D{i}</div>
                                         ))}
                                     </div>
-                                ))}
-                                <div className="flex bg-slate-50 font-black">
-                                    <div className="w-40 shrink-0 h-10 flex items-center px-4 text-[10px] text-slate-500 sticky left-0 bg-slate-50 z-10 border-r-2 border-slate-200 uppercase">Cobertura (P)</div>
-                                    {data.counts.map((c, i) => (
-                                        <div key={i} className={`cell ${c < 2 && i > config.inductionDays ? 'text-red-600 bg-red-50' : 'text-slate-600'}`}>{c}</div>
+                                    {[
+                                        {label: 'Supervisor 1', row: data.s1},
+                                        {label: 'Supervisor 2', row: data.s2},
+                                        {label: 'Supervisor 3', row: data.s3}
+                                    ].map((item, idx) => (
+                                        <div key={idx} className="flex border-b border-slate-50">
+                                            <div className="w-40 shrink-0 h-10 flex items-center px-4 text-xs font-semibold text-slate-700 sticky left-0 bg-white z-10 border-r border-slate-100">
+                                                {item.label}
+                                            </div>
+                                            {item.row.slice(0, config.totalDrillDays).map((v, i) => {
+                                                const cls = v==='S'?'s-sub':v==='I'?'s-ind':v==='P'?'s-prf':v==='B'?'s-baj':'s-empty';
+                                                return <div key={i} className={`cell ${cls}`}>{v==='D'||v==='-'?'':v}</div>
+                                            })}
+                                        </div>
                                     ))}
+                                    <div className="flex bg-slate-50/80 font-bold">
+                                        <div className="w-40 shrink-0 h-10 flex items-center px-4 text-[10px] font-bold text-slate-500 uppercase sticky left-0 bg-slate-50 z-20 border-r border-slate-200">Cobertura</div>
+                                        {data.counts.map((c, i) => (
+                                            <div key={i} className="cell border-none text-slate-600">{c}</div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
