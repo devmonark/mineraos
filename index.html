@@ -3,23 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MineraOS Devmonark</title>
+    <title>MineraOS Devmonark - Final Fix</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #334155; }
-        .config-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .table-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
-        .cell { min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
-        .s-sub { background-color: #dbeafe; color: #1e40af; }
-        .s-ind { background-color: #fef3c7; color: #92400e; }
-        .s-prf { background-color: #dcfce7; color: #166534; }
-        .s-baj { background-color: #fee2e2; color: #991b1b; }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f2937; }
+        .panel-config { background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .panel-tabla { background: white; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05); overflow: hidden; }
+        .cell { min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; border-right: 1px solid #f3f4f6; border-bottom: 1px solid #f3f4f6; }
+        .s-sub { background-color: #eff6ff; color: #2563eb; } /* Azul S */
+        .s-ind { background-color: #fffbeb; color: #d97706; } /* Amarillo I */
+        .s-prf { background-color: #f0fdf4; color: #16a34a; } /* Verde P */
+        .s-baj { background-color: #fef2f2; color: #dc2626; } /* Rojo B */
         .custom-scroll::-webkit-scrollbar { height: 8px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -28,125 +28,126 @@
         const { useState, useMemo } = React;
 
         const App = () => {
-            const [config, setConfig] = useState({
-                workDays: 14,
-                offDays: 6,
-                inductionDays: 2,
-                totalDrillDays: 33
-            });
+            const [conf, setConf] = useState({ trabajo: 14, descanso: 7, induccion: 5, total: 33 });
 
             const data = useMemo(() => {
-                const { workDays, offDays, inductionDays, totalDrillDays } = config;
-                const total = totalDrillDays + 20;
-                let s1 = Array(total).fill('-');
-                let s2 = Array(total).fill('-');
-                let s3 = Array(total).fill('-');
+                const totalDias = conf.total + 20;
+                let s1 = Array(totalDias).fill('-');
+                let s2 = Array(totalDias).fill('-');
+                let s3 = Array(totalDias).fill('-');
 
-                const fillWorker = (arr, start) => {
-                    let d = start;
-                    while (d < total) {
-                        // 1. Subida
-                        if (d < total) arr[d++] = 'S';
-                        // 2. Inducción
-                        for (let i = 0; i < inductionDays && d < total; i++) arr[d++] = 'I';
-                        // 3. Producción (P): total trabajo - 1 (subida) - inducción
-                        let pLimit = workDays - 1 - inductionDays;
-                        for (let i = 0; i < pLimit && d < total; i++) arr[d++] = 'P';
-                        // 4. BAJADA (B): Ocurre en el día workDays + 1 (índice exacto)
-                        if (d < total) arr[d++] = 'B';
-                        // 5. Descanso
-                        for (let i = 0; i < (offDays - 1) && d < total; i++) arr[d++] = 'D';
+                const asignarCiclo = (arr, inicio) => {
+                    let d = inicio;
+                    while (d < totalDias) {
+                        // 1. Días de Trabajo (Exactamente conf.trabajo)
+                        for (let i = 0; i < conf.trabajo && d < totalDias; i++) {
+                            if (i === 0) arr[d] = 'S';
+                            else if (i <= conf.induccion) arr[d] = 'I';
+                            else arr[d] = 'P';
+                            d++;
+                        }
+                        // 2. Día de Bajada (Justo después de los días de trabajo)
+                        if (d < totalDias) {
+                            arr[d] = 'B'; 
+                            d++;
+                        }
+                        // 3. Días de Descanso (Resto del ciclo)
+                        for (let i = 0; i < (conf.descanso - 1) && d < totalDias; i++) {
+                            arr[d] = 'D';
+                            d++;
+                        }
                     }
                 };
 
-                // Supervisor 1 y 2 inician en D0
-                fillWorker(s1, 0);
-                fillWorker(s2, 0);
+                // Supervisor 1 y 2 arrancan en D0
+                asignarCiclo(s1, 0);
+                asignarCiclo(s2, 0);
 
-                // Supervisor 3: Relevo Inteligente
-                for (let i = 0; i < total; i++) {
-                    // Si alguien baja en el futuro, S3 sube con antelación para estar en 'P' cuando el otro se vaya
-                    let targetDay = i + inductionDays + 1;
-                    if (targetDay < total && (s1[targetDay] === 'B' || s2[targetDay] === 'B')) {
+                // Supervisor 3 entra para relevar cuando alguien baja
+                for (let i = 0; i < totalDias; i++) {
+                    // Calculamos cuándo necesita estar listo P para cubrir la B del otro
+                    let diaNecesarioP = i + conf.induccion + 1;
+                    if (diaNecesarioP < totalDias && (s1[diaNecesarioP] === 'B' || s2[diaNecesarioP] === 'B')) {
                         if (s3[i] === '-') {
-                            // Validar que no haya trabajado recientemente
-                            let restOk = true;
-                            for(let j=1; j<offDays; j++) if(i-j >= 0 && (s3[i-j] !== '-' && s3[i-j] !== 'D')) restOk = false;
-                            if(restOk) fillWorker(s3, i);
+                            // Validar descanso previo
+                            let libre = true;
+                            for(let j=1; j<conf.descanso; j++) if(i-j >= 0 && (s3[i-j] !== '-' && s3[i-j] !== 'D')) libre = false;
+                            if(libre) asignarCiclo(s3, i);
                         }
                     }
                 }
 
-                const counts = [];
-                for(let i=0; i<totalDrillDays; i++) {
-                    counts.push((s1[i]==='P'?1:0) + (s2[i]==='P'?1:0) + (s3[i]==='P'?1:0));
+                const cobertura = [];
+                for(let i=0; i < conf.total; i++) {
+                    cobertura.push((s1[i]==='P'?1:0) + (s2[i]==='P'?1:0) + (s3[i]==='P'?1:0));
                 }
 
-                return { s1, s2, s3, counts };
-            }, [config]);
+                return { s1, s2, s3, cobertura };
+            }, [conf]);
 
             return (
-                <div className="p-10 max-w-[1600px] mx-auto">
-                    <div className="flex justify-between items-center mb-10">
+                <div className="p-8 max-w-[1600px] mx-auto">
+                    <div className="flex justify-between items-end mb-8">
                         <div>
-                            <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">MineraOS Devmonark</h1>
-                            <p className="text-slate-400 text-sm font-medium">Gestión de Relevos de Supervisión</p>
+                            <h1 className="text-2xl font-bold text-slate-800">MineraOS Devmonark</h1>
+                            <p className="text-slate-500 text-sm font-medium">Panel de Planificación de Relevos Críticos</p>
                         </div>
-                        <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-full text-xs font-bold border border-emerald-100 uppercase tracking-tighter">
-                            ✓ Operación Segura
+                        <div className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-green-200">
+                            Operación Sincronizada 100%
                         </div>
                     </div>
 
                     <div className="flex flex-col lg:flex-row gap-8">
+                        {/* CONFIGURACIÓN */}
                         <div className="w-full lg:w-72 shrink-0">
-                            <div className="config-card">
-                                <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 text-center">Configuración</h2>
+                            <div className="panel-config space-y-6">
+                                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Configuración</h2>
                                 {[
-                                    {label: 'Ciclo Trabajo', k: 'workDays'},
-                                    {label: 'Ciclo Descanso', k: 'offDays'},
-                                    {label: 'Inducción', k: 'inductionDays'},
-                                    {label: 'Proyección Total', k: 'totalDrillDays'}
+                                    {label: 'Ciclo Trabajo (Días)', k: 'trabajo'},
+                                    {label: 'Ciclo Descanso', k: 'descanso'},
+                                    {label: 'Días Inducción', k: 'induccion'},
+                                    {label: 'Proyección Total', k: 'total'}
                                 ].map(item => (
-                                    <div key={item.k} className="mb-4">
-                                        <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase">{item.label}</label>
+                                    <div key={item.k}>
+                                        <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase">{item.label}</label>
                                         <input 
                                             type="number" 
-                                            className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
-                                            value={config[item.k]} 
-                                            onChange={e => setConfig({...config, [item.k]: parseInt(e.target.value) || 0})}
+                                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                            value={conf[item.k]} 
+                                            onChange={e => setConf({...conf, [item.k]: parseInt(e.target.value) || 0})}
                                         />
                                     </div>
                                 ))}
                             </div>
                         </div>
 
-                        <div className="flex-1 table-card">
+                        {/* TABLA */}
+                        <div className="flex-1 panel-tabla">
                             <div className="overflow-x-auto custom-scroll">
                                 <div className="inline-block min-w-full">
-                                    <div className="flex bg-slate-50/50 border-b border-slate-100">
-                                        <div className="w-40 h-10 flex items-center px-4 text-[10px] font-bold text-slate-400 uppercase sticky left-0 bg-slate-50 z-20 border-r border-slate-100 italic">Supervisor</div>
-                                        {data.counts.map((_, i) => (
+                                    <div className="flex bg-slate-50 border-b border-slate-100">
+                                        <div className="w-40 h-10 flex items-center px-4 text-[10px] font-bold text-slate-400 uppercase sticky left-0 bg-slate-50 z-20 border-r border-slate-100">Supervisor</div>
+                                        {data.cobertura.map((_, i) => (
                                             <div key={i} className="cell text-[10px] text-slate-400 border-none font-medium">D{i}</div>
                                         ))}
                                     </div>
                                     {[
-                                        {name: 'Supervisor 1', r: data.s1},
-                                        {name: 'Supervisor 2', r: data.s2},
-                                        {name: 'Supervisor 3', r: data.s3}
+                                        {id: 'Supervisor 1', row: data.s1},
+                                        {id: 'Supervisor 2', row: data.s2},
+                                        {id: 'Supervisor 3', row: data.s3}
                                     ].map((s, idx) => (
                                         <div key={idx} className="flex border-b border-slate-50">
-                                            <div className="w-40 h-10 flex items-center px-4 text-xs font-bold text-slate-700 sticky left-0 bg-white z-10 border-r border-slate-100">{s.name}</div>
-                                            {s.r.slice(0, config.totalDrillDays).map((v, i) => (
-                                                <div key={i} className={`cell ${v==='S'?'s-sub':v==='I'?'s-ind':v==='P'?'s-prf':v==='B'?'s-baj':''}`}>
-                                                    {v === '-' || v === 'D' ? '' : v}
-                                                </div>
-                                            ))}
+                                            <div className="w-40 h-10 flex items-center px-4 text-xs font-bold text-slate-700 sticky left-0 bg-white z-10 border-r border-slate-100">{s.id}</div>
+                                            {s.row.slice(0, conf.total).map((v, i) => {
+                                                const cls = v==='S'?'s-sub':v==='I'?'s-ind':v==='P'?'s-prf':v==='B'?'s-baj':'';
+                                                return <div key={i} className={`cell ${cls}`}>{v==='D'||v==='-'?'':v}</div>
+                                            })}
                                         </div>
                                     ))}
-                                    <div className="flex bg-slate-50/80">
+                                    <div className="flex bg-slate-50 font-bold">
                                         <div className="w-40 h-10 flex items-center px-4 text-[10px] font-bold text-slate-500 uppercase sticky left-0 bg-slate-50 z-20 border-r border-slate-200">Cobertura (P)</div>
-                                        {data.counts.map((c, i) => (
-                                            <div key={i} className={`cell border-none ${c < 2 && i > config.inductionDays ? 'text-red-500 font-black' : 'text-slate-600'}`}>{c}</div>
+                                        {data.cobertura.map((c, i) => (
+                                            <div key={i} className={`cell border-none ${c < 2 && i > conf.induccion ? 'text-red-500' : 'text-slate-600'}`}>{c}</div>
                                         ))}
                                     </div>
                                 </div>
